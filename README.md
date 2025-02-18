@@ -23,7 +23,7 @@ This repository contains a complete implementation of a hybrid question answerin
 Modern applications increasingly rely on tabular data generated from diverse sources. Traditional SQL-based systems present several challenges when handling these datasets:
 
 - **Scalability Issues:**  
-  Relational databases require predefined schemas, which makes them inflexible when handling various tabular formats. Storing heterogeneous tabular data (with varying columns, data types, and structures) demands constant schema migrations, which complicates scalability and maintenance.
+  Relational databases require predefined schemas, making them inflexible when handling various tabular formats. Storing heterogeneous tabular data (with varying columns, data types, and structures) demands constant schema migrations, complicating scalability and maintenance.
 
 - **Schema Rigidity:**  
   SQL databases enforce a strict schema. When tabular data from different sources or with evolving formats must be stored, the system either needs to normalize or transform the data—often leading to performance bottlenecks and increased development overhead.
@@ -44,34 +44,25 @@ Our solution leverages a **hybrid approach** that integrates a NoSQL database (M
 
 ### Challenges with SQL-Based Systems
 
-- **Rigid Schemas:**  
-  SQL databases require a fixed schema. This makes it difficult to store tabular data files that vary in structure.
-  
-- **Scalability Constraints:**  
-  Scaling SQL databases typically involves vertical scaling, which can be costly and limit performance when handling large, heterogeneous datasets.
-  
-- **Limited Flexibility in Querying:**  
-  While SQL is powerful for structured queries, converting natural language questions into complex SQL queries for numerical operations can be error-prone, and LLMs often struggle with performing exact arithmetic within textual outputs.
+- **Rigid Schemas:** SQL databases require a fixed schema, which complicates storing tabular data files that vary in structure.
+- **Scalability Constraints:** Scaling SQL databases typically involves vertical scaling, which can be costly and limit performance when handling large, heterogeneous datasets.
+- **Limited Flexibility in Querying:** While SQL is powerful for structured queries, converting natural language questions into complex SQL queries for numerical operations can be error-prone, and LLMs often struggle with exact arithmetic within textual outputs.
 
 ### Our Hybrid Approach
 
 1. **Data Ingestion:**  
-   - Tabular data files are processed using Python (via libraries like Pandas) and stored in MongoDB.  
+   - Tabular data files are processed using Python (via libraries like Pandas) and stored in MongoDB.
    - Each row is transformed into a document that preserves both the raw data (as a dictionary) and a textual representation.
    - An embedding is generated for each row (using OpenAI’s embedding model) to facilitate semantic similarity search.
 
 2. **Query Processing:**  
-   - **Question Classification:**  
-     An LLM is used to classify incoming questions as "numeric," "textual," or "mixed" based on whether they require precise calculations, text retrieval, or both.
-     
-   - **Numerical Queries:**  
-     For numeric aspects, the LLM generates a MongoDB aggregation pipeline that filters and groups data to compute exact results (e.g., sums, averages).
-     
-   - **Textual Queries:**  
-     For textual queries, a similarity search is performed over the stored embeddings to retrieve relevant context.
-     
-   - **Response Generation:**  
-     The system combines the numeric results and textual context into a final prompt and sends it to the LLM (e.g., GPT-3.5-turbo) to generate a concise and accurate answer.
+   - **Question Classification:** An LLM classifies incoming questions as "numeric," "textual," or "mixed" based on whether they require precise calculations, text retrieval, or both.
+   - **Numerical Queries:** For numeric aspects, the LLM generates a MongoDB aggregation pipeline that filters and groups data to compute exact results (e.g., sums, averages).
+   - **Textual Queries:** For textual queries, a similarity search is performed over the stored embeddings to retrieve relevant context.
+   - **Response Generation:** The system combines the numeric results and textual context into a final prompt and sends it to the LLM (e.g., GPT-3.5-turbo) to generate a concise and accurate answer.
+
+3. **Automatic File Selection:**  
+   The system automatically selects the most relevant file (i.e., the `excel_id`) based on the similarity between the question and the stored embeddings. This removes the need to manually pass an `excel_id` with each query.
 
 ---
 
@@ -92,7 +83,8 @@ Our solution leverages a **hybrid approach** that integrates a NoSQL database (M
 
 - **Endpoint:** `/ask`
 - **Process:**
-  1. Receives a question, along with `user_id` and `excel_id`.
+  1. Receives a question along with a `user_id`.  
+     The system automatically groups stored documents by `excel_id` and selects the file whose data best matches the question.
   2. Classifies the question as "numeric," "textual," or "mixed" using an LLM.
   3. **For Numeric/Mixed Queries:**  
      - Generates an aggregation pipeline via an LLM that translates the natural language question into a MongoDB query.
@@ -100,6 +92,7 @@ Our solution leverages a **hybrid approach** that integrates a NoSQL database (M
   4. **For Textual/Mixed Queries:**  
      - Computes the embedding of the question and retrieves top relevant documents using cosine similarity.
   5. Combines both numeric and textual results into a final prompt and calls the LLM to generate a complete answer.
+  6. Returns the answer along with the `excel_id` (i.e., the file used) for traceability.
 
 ---
 
@@ -136,15 +129,15 @@ Content-Type: application/json
 ```json
 {
   "user_id": "user123",
-  "excel_id": "unique-file-id",
   "question": "What is the sum of the sales column for January?"
-}   
+}
 ```
 
 **Response:**
 ```json
 {
   "answer": "The total sales for January is 12345.",
+  "arquivo_utilizado": "unique-file-id",
   "prompt_used": "Final prompt sent to the LLM..."
 }
 ```
@@ -204,7 +197,6 @@ Content-Type: application/json
     To use the OpenAI embedding model, you need to provide an API key in the `OPENAI_API_KEY` environment variable.
 
 - **Tabular Data:**
-The system is designed to handle tabular data with arbitrary columns. The ingestion process converts each row into a document that stores both raw data and a textual representation for similarity searches.
-
+The system is designed to handle tabular data with arbitrary columns. During ingestion, each row is converted into a document that contains both the raw data and a textual representation for semantic searches.
 
 ---
