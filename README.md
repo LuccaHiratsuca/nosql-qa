@@ -1,4 +1,4 @@
-# NoSQL Tabular Data Question Answering System
+# NoSQL Tabular Data Question Answering System with Mongo DB
 
 This repository contains a complete implementation of a hybrid question answering system over tabular data stored in a NoSQL database. The system is designed to efficiently and precisely answer queries on tabular datasets—regardless of whether the questions involve numerical calculations or textual retrieval—by combining the interpretative power of Large Language Models (LLMs) with the precise aggregation capabilities of NoSQL databases.
 
